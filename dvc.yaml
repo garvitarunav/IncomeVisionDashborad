@@ -1,0 +1,9 @@
+stages:
+  train:
+    cmd: python Income_Prediction.py
+    deps:
+      - Income_Prediction.py
+      - Train.csv
+      - Test.csv
+    outs:
+      - trained_model.joblib

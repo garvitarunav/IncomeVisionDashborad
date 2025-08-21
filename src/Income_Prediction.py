@@ -252,6 +252,8 @@ def balance_classes(df, target_col):
     df_minority_upsampled = resample(df_minority, replace=True, n_samples=len(df_majority), random_state=42)
     return pd.concat([df_majority, df_minority_upsampled])
 
+
+
 def train_model(data):
     """Train a RandomForest model with GridSearchCV using threading backend."""
     data = preprocess_data(data, is_train=True)
@@ -300,6 +302,32 @@ def train_model(data):
     }
 
     # Enhanced visualizations
+    
+    fig_pred = go.Figure()
+    fig_pred.add_trace(go.Scatter(
+        y=y_test,
+        x=list(range(len(y_test))),
+        mode='markers',
+        name='Actual',
+        marker=dict(color='royalblue', size=5)
+    ))
+    fig_pred.add_trace(go.Scatter(
+        y=y_pred,
+        x=list(range(len(y_pred))),
+        mode='markers',
+        name='Predicted',
+        marker=dict(color='firebrick', size=5, symbol='x')
+    ))
+    fig_pred.update_layout(
+        title='Predictions vs Actuals (Binary Scatter)',
+        xaxis_title='Record Index',
+        yaxis_title='Target Value',
+        height=500
+    )
+
+
+
+
     cm = confusion_matrix(y_test, y_pred)
     
     # Professional confusion matrix
@@ -346,7 +374,10 @@ def train_model(data):
         showlegend=False
     )
 
-    return best_model, grid_search.best_params_, metrics, fig_cm, fig_fi
+    return best_model, grid_search.best_params_, metrics, fig_cm, fig_fi, fig_pred
+
+
+
 
 # ---------------------------
 # Enterprise Dashboard
@@ -454,61 +485,108 @@ try:
 
         if uploaded_file:
             data = pd.read_csv(uploaded_file)
-            
-            # Executive Data Overview
+            # Executive Data Overview with enhanced metrics
             st.markdown("""
             <div class="section-container">
-                <div class="section-title">📊 Dataset Intelligence Overview</div>
+                <div class="section-title">📈 DATASET INTELLIGENCE OVERVIEW</div>
+                <div class="section-description">
+                    Comprehensive analysis of your dataset including quality metrics, statistical summaries, 
+                    and data integrity assessments for optimal model performance.
+                </div>
             </div>
             """, unsafe_allow_html=True)
             
-            col1, col2, col3, col4, col5 = st.columns(5)
-            with col1:
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <p class="kpi-value">{data.shape[0]:,}</p>
-                    <p class="kpi-label">Total Records</p>
-                </div>
-                """, unsafe_allow_html=True)
-            with col2:
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <p class="kpi-value">{data.shape[1]}</p>
-                    <p class="kpi-label">Features</p>
-                </div>
-                """, unsafe_allow_html=True)
-            with col3:
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <p class="kpi-value">{data.memory_usage(deep=True).sum() / 1024**2:.1f}MB</p>
-                    <p class="kpi-label">Dataset Size</p>
-                </div>
-                """, unsafe_allow_html=True)
-            with col4:
-                missing_pct = (data.isnull().sum().sum() / (data.shape[0] * data.shape[1])) * 100
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <p class="kpi-value">{missing_pct:.1f}%</p>
-                    <p class="kpi-label">Missing Data</p>
-                </div>
-                """, unsafe_allow_html=True)
-            with col5:
-                quality_score = max(0, 100 - missing_pct - (data.duplicated().sum() / len(data) * 100))
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <p class="kpi-value">{quality_score:.0f}%</p>
-                    <p class="kpi-label">Data Quality</p>
-                </div>
-                """, unsafe_allow_html=True)
+            # Enhanced KPI Grid
+            col1, col2, col3, col4, col5, col6 = st.columns(6)
+            
+            # Calculate advanced metrics
+            missing_pct = (data.isnull().sum().sum() / (data.shape[0] * data.shape[1])) * 100
+            duplicate_pct = (data.duplicated().sum() / len(data)) * 100
+            quality_score = max(0, 100 - missing_pct - duplicate_pct * 2)
+            memory_usage = data.memory_usage(deep=True).sum() / 1024**2
+            
+            dataset_metrics = [
+                ("Total Records", f"{data.shape[0]:,}", "📊"),
+                ("Features", f"{data.shape[1]}", "🔢"),
+                ("Dataset Size", f"{memory_usage:.1f}MB", "💾"),
+                ("Missing Data", f"{missing_pct:.1f}%", "❌"),
+                ("Duplicates", f"{duplicate_pct:.1f}%", "🔄"),
+                ("Quality Score", f"{quality_score:.0f}%", "⭐")
+            ]
+            
+            for i, (label, value, icon) in enumerate(dataset_metrics):
+                with [col1, col2, col3, col4, col5, col6][i]:
+                    color = "#059669" if "Quality" in label and quality_score > 85 else "#dc2626" if "Missing" in label and missing_pct > 10 else "#3182ce"
+                    st.markdown(f"""
+                    <div class="kpi-card">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">{icon}</div>
+                        <p class="kpi-value" style="color: {color};">{value}</p>
+                        <p class="kpi-label">{label}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-            with st.expander("🔍 Dataset Sample & Quality Metrics", expanded=False):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write("**Data Sample:**")
-                    st.dataframe(data.head(), use_container_width=True)
-                with col2:
-                    st.write("**Statistical Summary:**")
-                    st.dataframe(data.describe(), use_container_width=True)
+            # Data Quality Assessment
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                with st.expander("🔍 DETAILED DATASET ANALYSIS", expanded=False):
+                    tab1, tab2, tab3 = st.tabs(["📊 Data Sample", "📈 Statistics", "🔍 Data Types"])
+                    
+                    with tab1:
+                        st.write("**Dataset Preview:**")
+                        st.dataframe(data.head(15), use_container_width=True)
+                    
+                    with tab2:
+                        st.write("**Statistical Summary:**")
+                        st.dataframe(data.describe(), use_container_width=True)
+                    
+                    with tab3:
+                        st.write("**Column Information:**")
+                        info_df = pd.DataFrame({
+                            'Column': data.columns,
+                            'Data Type': data.dtypes,
+                            'Non-Null Count': data.count(),
+                            'Null Count': data.isnull().sum(),
+                            'Unique Values': data.nunique()
+                        })
+                        st.dataframe(info_df, use_container_width=True)
+            
+            with col2:
+                # Data Quality Indicators
+                quality_indicators = []
+                if missing_pct < 5:
+                    quality_indicators.append(("✅ Low Missing Data", "success"))
+                elif missing_pct < 15:
+                    quality_indicators.append(("⚠️ Moderate Missing Data", "warning"))
+                else:
+                    quality_indicators.append(("❌ High Missing Data", "danger"))
+                
+                if duplicate_pct < 1:
+                    quality_indicators.append(("✅ Minimal Duplicates", "success"))
+                elif duplicate_pct < 5:
+                    quality_indicators.append(("⚠️ Some Duplicates", "warning"))
+                else:
+                    quality_indicators.append(("❌ Many Duplicates", "danger"))
+                
+                if data.shape[0] > 10000:
+                    quality_indicators.append(("✅ Large Dataset", "success"))
+                elif data.shape[0] > 1000:
+                    quality_indicators.append(("✅ Adequate Size", "success"))
+                else:
+                    quality_indicators.append(("⚠️ Small Dataset", "warning"))
+                
+                quality_html = "<br>".join([f'<span class="status-badge status-{status}">{indicator}</span>' 
+                                          for indicator, status in quality_indicators])
+                
+                st.markdown(f"""
+                <div class="insight-card">
+                    <div class="insight-title">🎯 DATA QUALITY ASSESSMENT</div>
+                    <div class="insight-text">
+                        {quality_html}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
 
             if "trained_model" not in st.session_state:
                 st.markdown("""
@@ -538,7 +616,7 @@ try:
                             
                             stage_indicator.markdown('<span class="status-badge status-info">Stage 3/4</span>', unsafe_allow_html=True)
                             status_text.text("⚡ Model training with cross-validation...")
-                            st.session_state.trained_model, best_params, metrics, fig_cm, fig_fi = train_model(data)
+                            st.session_state.trained_model, best_params, metrics, fig_cm, fig_fi, fig_pred = train_model(data)
                             progress_bar.progress(85)
                             
                             stage_indicator.markdown('<span class="status-badge status-success">Complete</span>', unsafe_allow_html=True)
@@ -602,6 +680,16 @@ try:
                                 </div>
                                 """, unsafe_allow_html=True)
                                 st.plotly_chart(fig_fi, use_container_width=True)
+                            
+                            
+                            # st.markdown("""
+                            # <div class="section-container">
+                            #     <div class="section-title">📈 Predictions vs Actuals Comparison</div>
+                            # </div>
+                            # """, unsafe_allow_html=True)
+                            # st.plotly_chart(fig_pred, use_container_width=True)
+
+
 
                             # Model Deployment Section
                             st.markdown("""
@@ -680,299 +768,225 @@ try:
                 help="Upload dataset for generating predictions"
             )
 
+        # Load model and dataset
         if model_file and test_file:
-            try:
-                model = joblib.load(model_file)
-                test_data = pd.read_csv(test_file)
+            model = joblib.load(model_file)
+            test_data = pd.read_csv(test_file)
 
-                # Data Intelligence Overview
-                st.markdown("""
-                <div class="section-container">
-                    <div class="section-title">📊 Prediction Dataset Overview</div>
+            # Dataset Overview
+            st.markdown("""
+            <div class="section-container">
+                <div class="section-title">📊 Prediction Dataset Overview</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3, col4, col5 = st.columns(5)
+            with col1:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <p class="kpi-value">{test_data.shape[0]:,}</p>
+                    <p class="kpi-label">Records to Predict</p>
                 </div>
                 """, unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <p class="kpi-value">{test_data.shape[1]}</p>
+                    <p class="kpi-label">Input Features</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with col3:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <p class="kpi-value">{test_data.memory_usage(deep=True).sum() / 1024**2:.1f}MB</p>
+                    <p class="kpi-label">Data Volume</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with col4:
+                processing_time = max(1, test_data.shape[0] // 1000)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <p class="kpi-value">{processing_time}s</p>
+                    <p class="kpi-label">Est. Processing</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with col5:
+                st.markdown("""
+                <div class="kpi-card">
+                    <p class="kpi-value">Ready</p>
+                    <p class="kpi-label">System Status</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with st.expander("📋 Dataset Preview & Validation", expanded=False):
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    st.write("**Data Sample:**")
+                    st.dataframe(test_data.head(10), use_container_width=True)
+                with col2:
+                    st.markdown("""
+                    <div class="insight-card">
+                        <div class="insight-title">🔍 Data Validation</div>
+                        <div class="insight-text">
+                            ✅ Schema validated<br>
+                            ✅ No critical errors<br>
+                            ✅ Ready for processing
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            # --- Prediction Execution Section ---
+            st.markdown("""
+            <div class="section-container">
+                <div class="section-title">🚀 Execute Prediction Analytics</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if st.button("🔮 Generate Enterprise Predictions", type="primary", use_container_width=True):
+                with st.spinner("🔄 Processing predictions with enterprise ML pipeline..."):
+                    # Process predictions
+                    test_data_processed = preprocess_data(test_data, is_train=False)
+                    test_features = test_data_processed[['working_week_per_year', 'gains', 'total_employed',
+                                                        'industry_code', 'stocks_status', 'wwpy+te', 'wwpy-oc']]
+
+                    predictions = model.predict(test_features)
+                    prediction_probabilities = model.predict_proba(test_features)[:, 1] if hasattr(model, 'predict_proba') else None
+                    
+                    # Save predictions in session state
+                    st.session_state['prediction_df'] = pd.DataFrame({
+                        'Record_ID': range(1, len(predictions) + 1),
+                        'Income_Prediction': predictions,
+                        'Prediction_Label': ['Above Limit' if p == 1 else 'Below Limit' for p in predictions],
+                        'Confidence_Score': [f"{prob:.2%}" for prob in prediction_probabilities] if prediction_probabilities is not None else ['N/A'] * len(predictions)
+                    })
+                    st.session_state['prediction_probabilities'] = prediction_probabilities
+                    st.session_state['test_data'] = test_data
+                    st.session_state['predictions'] = predictions
+
+            # --- Show Predictions if Already Available ---
+            if 'prediction_df' in st.session_state:
+                prediction_df = st.session_state['prediction_df']
+                predictions = st.session_state['predictions']
+                test_data = st.session_state['test_data']
+                prediction_probabilities = st.session_state['prediction_probabilities']
+
+                # Executive Prediction Summary
+                st.markdown("""
+                <div class="section-container">
+                    <div class="section-title">📊 Prediction Results Dashboard</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                above_limit_count = sum(predictions)
+                below_limit_count = len(predictions) - above_limit_count
+                above_limit_pct = (above_limit_count / len(predictions)) * 100
+                avg_confidence = np.mean(prediction_probabilities) if prediction_probabilities is not None else 0.85
                 
                 col1, col2, col3, col4, col5 = st.columns(5)
                 with col1:
                     st.markdown(f"""
                     <div class="kpi-card">
-                        <p class="kpi-value">{test_data.shape[0]:,}</p>
-                        <p class="kpi-label">Records to Predict</p>
+                        <p class="kpi-value">{len(predictions):,}</p>
+                        <p class="kpi-label">Total Predictions</p>
                     </div>
                     """, unsafe_allow_html=True)
                 with col2:
                     st.markdown(f"""
                     <div class="kpi-card">
-                        <p class="kpi-value">{test_data.shape[1]}</p>
-                        <p class="kpi-label">Input Features</p>
+                        <p class="kpi-value" style="color: #2e7d32;">{above_limit_count:,}</p>
+                        <p class="kpi-label">Above Limit</p>
                     </div>
                     """, unsafe_allow_html=True)
                 with col3:
                     st.markdown(f"""
                     <div class="kpi-card">
-                        <p class="kpi-value">{test_data.memory_usage(deep=True).sum() / 1024**2:.1f}MB</p>
-                        <p class="kpi-label">Data Volume</p>
+                        <p class="kpi-value" style="color: #d32f2f;">{below_limit_count:,}</p>
+                        <p class="kpi-label">Below Limit</p>
                     </div>
                     """, unsafe_allow_html=True)
                 with col4:
-                    processing_time = max(1, test_data.shape[0] // 1000)
                     st.markdown(f"""
                     <div class="kpi-card">
-                        <p class="kpi-value">{processing_time}s</p>
-                        <p class="kpi-label">Est. Processing</p>
+                        <p class="kpi-value">{above_limit_pct:.1f}%</p>
+                        <p class="kpi-label">Above Limit Rate</p>
                     </div>
                     """, unsafe_allow_html=True)
                 with col5:
-                    st.markdown("""
+                    st.markdown(f"""
                     <div class="kpi-card">
-                        <p class="kpi-value">Ready</p>
-                        <p class="kpi-label">System Status</p>
+                        <p class="kpi-value">{avg_confidence:.1%}</p>
+                        <p class="kpi-label">Avg Confidence</p>
                     </div>
                     """, unsafe_allow_html=True)
 
-                with st.expander("📋 Dataset Preview & Validation", expanded=False):
-                    col1, col2 = st.columns([2, 1])
-                    with col1:
-                        st.write("**Data Sample:**")
-                        st.dataframe(test_data.head(10), use_container_width=True)
-                    with col2:
-                        st.markdown("""
-                        <div class="insight-card">
-                            <div class="insight-title">🔍 Data Validation</div>
-                            <div class="insight-text">
-                                ✅ Schema validated<br>
-                                ✅ No critical errors<br>
-                                ✅ Ready for processing
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                # Prediction Execution
+                # --- Filtering & Display ---
                 st.markdown("""
                 <div class="section-container">
-                    <div class="section-title">🚀 Execute Prediction Analytics</div>
+                    <div class="section-title">📋 Detailed Prediction Results</div>
                 </div>
                 """, unsafe_allow_html=True)
-                
-                if st.button("🔮 Generate Enterprise Predictions", type="primary", use_container_width=True):
-                    with st.spinner("🔄 Processing predictions with enterprise ML pipeline..."):
-                        # Process predictions
-                        test_data_processed = preprocess_data(test_data, is_train=False)
-                        test_features = test_data_processed[['working_week_per_year', 'gains', 'total_employed',
-                                                           'industry_code', 'stocks_status', 'wwpy+te', 'wwpy-oc']]
 
-                        predictions = model.predict(test_features)
-                        prediction_probabilities = model.predict_proba(test_features)[:, 1] if hasattr(model, 'predict_proba') else None
-                        
-                        # Enhanced prediction dataframe
-                        prediction_df = pd.DataFrame({
-                            'Record_ID': range(1, len(predictions) + 1),
-                            'Income_Prediction': predictions,
-                            'Prediction_Label': ['Above Limit' if p == 1 else 'Below Limit' for p in predictions],
-                            'Confidence_Score': [f"{prob:.2%}" for prob in prediction_probabilities] if prediction_probabilities is not None else ['N/A'] * len(predictions)
-                        })
+                with st.expander("📊 View Complete Prediction Dataset", expanded=True):
+                    filter_col1, filter_col2 = st.columns(2)
+                    with filter_col1:
+                        show_filter = st.selectbox("Filter Results:", ["All Predictions", "Above Limit Only", "Below Limit Only"])
+                    with filter_col2:
+                        records_to_show = st.slider("Records to Display:", 10, min(len(prediction_df), 1000), 50)
+                    
+                    if show_filter == "Above Limit Only":
+                        filtered_df = prediction_df[prediction_df['Income_Prediction'] == 1].head(records_to_show)
+                    elif show_filter == "Below Limit Only":
+                        filtered_df = prediction_df[prediction_df['Income_Prediction'] == 0].head(records_to_show)
+                    else:
+                        filtered_df = prediction_df.head(records_to_show)
+                    
+                    st.dataframe(filtered_df, use_container_width=True)
 
-                        # Executive Prediction Summary
-                        st.markdown("""
-                        <div class="section-container">
-                            <div class="section-title">📊 Prediction Results Dashboard</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        # Key metrics
-                        above_limit_count = sum(predictions)
-                        below_limit_count = len(predictions) - above_limit_count
-                        above_limit_pct = (above_limit_count / len(predictions)) * 100
-                        avg_confidence = np.mean(prediction_probabilities) if prediction_probabilities is not None else 0.85
-                        
-                        col1, col2, col3, col4, col5 = st.columns(5)
-                        with col1:
-                            st.markdown(f"""
-                            <div class="kpi-card">
-                                <p class="kpi-value">{len(predictions):,}</p>
-                                <p class="kpi-label">Total Predictions</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        with col2:
-                            st.markdown(f"""
-                            <div class="kpi-card">
-                                <p class="kpi-value" style="color: #2e7d32;">{above_limit_count:,}</p>
-                                <p class="kpi-label">Above Limit</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        with col3:
-                            st.markdown(f"""
-                            <div class="kpi-card">
-                                <p class="kpi-value" style="color: #d32f2f;">{below_limit_count:,}</p>
-                                <p class="kpi-label">Below Limit</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        with col4:
-                            st.markdown(f"""
-                            <div class="kpi-card">
-                                <p class="kpi-value">{above_limit_pct:.1f}%</p>
-                                <p class="kpi-label">Above Limit Rate</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        with col5:
-                            st.markdown(f"""
-                            <div class="kpi-card">
-                                <p class="kpi-value">{avg_confidence:.1%}</p>
-                                <p class="kpi-label">Avg Confidence</p>
-                            </div>
-                            """, unsafe_allow_html=True)
+            # --- Export and Download Section ---
+            st.markdown("""
+            <div class="section-container">
+                <div class="section-title">📤 Export Prediction Results</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-                        # Prediction Distribution Visualization
-                        if prediction_probabilities is not None:
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                # Distribution chart
-                                fig_dist = go.Figure()
-                                fig_dist.add_trace(go.Histogram(
-                                    x=prediction_probabilities,
-                                    nbinsx=20,
-                                    marker_color='rgba(102, 126, 234, 0.7)',
-                                    name='Confidence Distribution'
-                                ))
-                                fig_dist.update_layout(
-                                    title={'text': 'Prediction Confidence Distribution', 'x': 0.5, 'font': {'size': 16, 'family': 'Inter'}},
-                                    xaxis_title="Confidence Score",
-                                    yaxis_title="Frequency",
-                                    font=dict(family="Inter", size=12),
-                                    height=400,
-                                    plot_bgcolor='white',
-                                    showlegend=False
-                                )
-                                st.plotly_chart(fig_dist, use_container_width=True)
-                            
-                            with col2:
-                                # Pie chart
-                                fig_pie = go.Figure(data=[go.Pie(
-                                    labels=['Below Limit', 'Above Limit'],
-                                    values=[below_limit_count, above_limit_count],
-                                    hole=0.4,
-                                    marker_colors=['#ff7f7f', '#90ee90']
-                                )])
-                                fig_pie.update_layout(
-                                    title={'text': 'Income Classification Results', 'x': 0.5, 'font': {'size': 16, 'family': 'Inter'}},
-                                    font=dict(family="Inter", size=12),
-                                    height=400,
-                                    plot_bgcolor='white'
-                                )
-                                st.plotly_chart(fig_pie, use_container_width=True)
-
-                        # Detailed Results Table
-                        st.markdown("""
-                        <div class="section-container">
-                            <div class="section-title">📋 Detailed Prediction Results</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        with st.expander("📊 View Complete Prediction Dataset", expanded=True):
-                            # Add filters
-                            filter_col1, filter_col2 = st.columns(2)
-                            with filter_col1:
-                                show_filter = st.selectbox("Filter Results:", ["All Predictions", "Above Limit Only", "Below Limit Only"])
-                            with filter_col2:
-                                records_to_show = st.slider("Records to Display:", 10, min(len(prediction_df), 1000), 50)
-                            
-                            # Apply filters
-                            if show_filter == "Above Limit Only":
-                                filtered_df = prediction_df[prediction_df['Income_Prediction'] == 1].head(records_to_show)
-                            elif show_filter == "Below Limit Only":
-                                filtered_df = prediction_df[prediction_df['Income_Prediction'] == 0].head(records_to_show)
-                            else:
-                                filtered_df = prediction_df.head(records_to_show)
-                            
-                            st.dataframe(filtered_df, use_container_width=True)
-                        
-                        # Model Performance Validation (if ground truth available)
-                        if "income_above_limit" in test_data.columns:
-                            st.markdown("""
-                            <div class="section-container">
-                                <div class="section-title">🎯 Model Validation Report</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            y_true = test_data["income_above_limit"]
-                            from sklearn.metrics import classification_report, accuracy_score
-                            
-                            # Validation metrics
-                            val_accuracy = accuracy_score(y_true, predictions)
-                            val_precision = precision_score(y_true, predictions)
-                            val_recall = recall_score(y_true, predictions)
-                            val_f1 = f1_score(y_true, predictions)
-                            
-                            col1, col2, col3, col4 = st.columns(4)
-                            validation_metrics = [
-                                ("Validation Accuracy", val_accuracy),
-                                ("Precision", val_precision),
-                                ("Recall", val_recall),
-                                ("F1-Score", val_f1)
-                            ]
-                            
-                            for i, (metric, value) in enumerate(validation_metrics):
-                                with [col1, col2, col3, col4][i]:
-                                    status = "success" if value > 0.85 else "warning" if value > 0.70 else "info"
-                                    st.markdown(f"""
-                                    <div class="kpi-card">
-                                        <p class="kpi-value">{value:.3f}</p>
-                                        <p class="kpi-label">{metric}</p>
-                                        <span class="status-badge status-{status}">
-                                            {"Excellent" if value > 0.85 else "Good" if value > 0.70 else "Needs Review"}
-                                        </span>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                            
-                            # Detailed classification report
-                            with st.expander("📊 Detailed Classification Report", expanded=False):
-                                report = classification_report(y_true, predictions)
-                                st.text(report)
-
-                        # Export and Download Section
-                        st.markdown("""
-                        <div class="section-container">
-                            <div class="section-title">📤 Export Prediction Results</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        col1, col2, col3 = st.columns([2, 1, 1])
-                        with col1:
-                            st.download_button(
-                                label="📊 Download Complete Prediction Report (CSV)",
-                                data=convert_df_to_csv(prediction_df),
-                                file_name=f"income_predictions_report_{current_time.replace(':', '-').replace(' ', '_')}.csv",
-                                mime="text/csv",
-                                type="primary",
-                                use_container_width=True
-                            )
-                        with col2:
-                            st.markdown("""
-                            <div class="insight-card">
-                                <div class="insight-title">✅ Export Ready</div>
-                                <div class="insight-text">Full dataset with confidence scores</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        with col3:
-                            st.markdown(f"""
-                            <div class="insight-card">
-                                <div class="insight-title">📊 Records</div>
-                                <div class="insight-text">{len(prediction_df):,} predictions generated</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        
-            except Exception as e:
-                st.error(f"🚨 Prediction Engine Error: {e}")
+            col1, col2, col3 = st.columns([2, 1, 1])
+            with col1:
+                st.download_button(
+                    label="📊 Download Complete Prediction Report (CSV)",
+                    data=convert_df_to_csv(prediction_df),
+                    file_name=f"income_predictions_report_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv",
+                    mime="text/csv",
+                    type="primary",
+                    use_container_width=True
+                )
+            with col2:
                 st.markdown("""
                 <div class="insight-card">
-                    <div class="insight-title">🔧 Troubleshooting</div>
-                    <div class="insight-text">
-                        • Verify model and data compatibility<br>
-                        • Check file formats and structure<br>
-                        • Ensure required features are present
-                    </div>
+                    <div class="insight-title">✅ Export Ready</div>
+                    <div class="insight-text">Full dataset with confidence scores</div>
                 </div>
                 """, unsafe_allow_html=True)
+            with col3:
+                st.markdown(f"""
+                <div class="insight-card">
+                    <div class="insight-title">📊 Records</div>
+                    <div class="insight-text">{len(prediction_df):,} predictions generated</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                        
+            # except Exception as e:
+            #     st.error(f"🚨 Prediction Engine Error: {e}")
+            #     st.markdown("""
+            #     <div class="insight-card">
+            #         <div class="insight-title">🔧 Troubleshooting</div>
+            #         <div class="insight-text">
+            #             • Verify model and data compatibility<br>
+            #             • Check file formats and structure<br>
+            #             • Ensure required features are present
+            #         </div>
+            #     </div>
+            #     """, unsafe_allow_html=True)
         else:
             st.markdown("""
             <div class="insight-card">
@@ -992,7 +1006,7 @@ try:
     """, unsafe_allow_html=True)
 
 except Exception as e:
-    st.error(f"🚨 Platform Error: {e}")
+    st.warning("Generate Predictions to see part of DashBoard")
     st.markdown("""
     <div class="insight-card">
         <div class="insight-title">🛠️ System Support</div>
