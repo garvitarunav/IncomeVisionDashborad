@@ -15,7 +15,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import yaml
-from src.functions import *
+from functions import *
 
 if "sample_data_loaded" not in st.session_state:
     st.session_state.sample_data_loaded = False
