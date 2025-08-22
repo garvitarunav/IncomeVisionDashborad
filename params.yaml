@@ -1,0 +1,45 @@
+# Enterprise Income Analytics Platform Configuration
+# This file contains paths and configuration parameters for the application
+
+# Data file paths for sample datasets
+data_paths:
+  train_csv: "data/Train.csv"  # Path to training dataset
+  test_csv: "data/Test.csv"    # Path to test dataset
+
+# Model configuration parameters (optional - can be extended)
+model_config:
+  random_state: 42
+  test_size: 0.20
+  cv_folds: 3
+  
+# Feature engineering parameters (optional - can be extended)
+preprocessing:
+  target_column: "income_above_limit"
+  drop_columns:
+    - "ID"
+    - "class" 
+    - "education_institute"
+    - "unemployment_reason"
+    - "is_labor_union"
+    - "occupation_code_main"
+    - "under_18_family"
+    - "veterans_admin_questionnaire"
+    - "residence_1_year_ago"
+    - "old_residence_reg"
+    - "old_residence_state"
+    - "migration_prev_sunbelt"
+  
+  final_features:
+    - "working_week_per_year"
+    - "gains"
+    - "total_employed"
+    - "industry_code"
+    - "stocks_status"
+    - "wwpy+te"
+    - "wwpy-oc"
+
+# Application settings (optional)
+app_config:
+  page_title: "Enterprise Income Analytics Platform"
+  version: "2.1.0 Enterprise"
+  max_upload_size: 200  # MB
