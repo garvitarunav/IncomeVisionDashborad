@@ -1,43 +1,48 @@
 # ===========================
 # Stage 1: Build dependencies
 # ===========================
-FROM python:3.10-slim AS builder   
+FROM python:3.13-slim AS builder
 
+# Set working directory
 WORKDIR /app
 
 # Install system dependencies for building Python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential gcc \
+    build-essential \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only requirements first (better caching)
+# Copy requirements first to leverage caching
 COPY requirements.txt .
 
-# Install Python dependencies into /install (not system-wide yet)
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-
+# Install Python dependencies
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
 
 # ===========================
-# Stage 2: Final runtime image
+# Stage 2: Final image
 # ===========================
-FROM python:3.10-slim
+FROM python:3.13-slim
 
+# Set working directory
 WORKDIR /app
 
-# Copy installed dependencies from builder
-COPY --from=builder /install /usr/local
+# Copy installed Python packages from builder stage
+COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy only required project files
-COPY src/ /app/src/
-COPY data/ /app/data/
-COPY params.yaml /app/
-COPY enterprise_income_m* /app/
-COPY dvc.yaml /app/
-COPY README.md /app/
+# Copy project files
+COPY src/ ./src
+COPY data/ ./data
+COPY README.md .
+COPY params.yaml .
+COPY enterprise_income_model_2025-08-21_14-26.joblib .  
 
-# Set Streamlit config
-ENV PORT=8080
-EXPOSE 8080
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
 
-# Run Streamlit app (Railway sets $PORT dynamically)
-CMD ["sh", "-c", "streamlit run src/Income_Prediction.py --server.port=$PORT --server.address=0.0.0.0"]
+# Expose port if needed (for Streamlit)
+EXPOSE 8501
+
+# Set default command
+CMD ["streamlit", "run", "src/Income_Prediction.py"]
